@@ -57,7 +57,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8f9fa", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "2rem 1.5rem" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "2rem 1.5rem" }}>
         <div style={{ marginBottom: "2rem" }}>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#888", textTransform: "uppercase", marginBottom: 6 }}>AI Arsenal Activators</div>
           <h1 style={{ fontSize: 28, fontWeight: 600, color: "#111", margin: 0 }}>Demand Letter Analyzer</h1>
@@ -95,6 +95,49 @@ export default function App() {
   );
 }
 
+function QuickGlance({ data, isIn }) {
+  if (!data) return null;
+  const fields = isIn ? [
+    { label: "Total demand", value: data.total_demand },
+    { label: "Settlement deadline", value: data.settlement_deadline },
+    { label: "Medical specials", value: data.total_medical_specials },
+    { label: "Wage loss", value: data.total_wage_loss },
+    { label: "Treatment duration", value: data.treatment_duration },
+    { label: "Gaps in treatment", value: data.gaps_in_treatment },
+    { label: "Recommended reserve", value: data.recommended_reserve, highlight: true },
+    { label: "Venue", value: data.venue },
+    { label: "Policy limits", value: data.policy_limits },
+    { label: "# of plaintiffs", value: data.num_plaintiffs },
+    { label: "Plaintiff counsel", value: data.plaintiff_counsel },
+  ] : [
+    { label: "Demand amount", value: data.total_demand },
+    { label: "Settlement deadline", value: data.settlement_deadline },
+    { label: "Medical specials", value: data.total_medical_specials },
+    { label: "Wage loss", value: data.total_wage_loss },
+    { label: "Treatment duration", value: data.treatment_duration },
+    { label: "Gaps (adjuster will flag)", value: data.gaps_in_treatment, highlight: true },
+    { label: "Carrier will likely reserve at", value: data.recommended_reserve },
+    { label: "Venue", value: data.venue },
+    { label: "Policy limits", value: data.policy_limits },
+    { label: "# of plaintiffs", value: data.num_plaintiffs },
+    { label: "Your firm", value: data.plaintiff_counsel },
+  ];
+
+  return (
+    <div style={{ marginBottom: "1.25rem", background: "#f0f4ff", border: "1px solid #c7d7f9", borderRadius: 10, padding: "1rem 1.25rem" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#3b5bdb", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>⚡ Quick Glance</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "8px 16px" }}>
+        {fields.map((f, i) => (
+          <div key={i} style={{ fontSize: 13 }}>
+            <span style={{ color: "#888", fontSize: 11, display: "block", marginBottom: 1 }}>{f.label}</span>
+            <span style={{ fontWeight: 600, color: f.highlight ? "#c2410c" : "#111" }}>{f.value || "—"}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ResultCard({ result, lens }) {
   const isIn = lens === "incoming";
   const c = COLORS[lens];
@@ -122,6 +165,9 @@ function ResultCard({ result, lens }) {
       <div style={{ display: "inline-block", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, letterSpacing: "0.07em", marginBottom: "1rem", background: c.badge, color: c.badgeText }}>
         {isIn ? "INCOMING DEMAND REVIEW" : "OUTGOING DEMAND CHECK"}
       </div>
+
+      <QuickGlance data={result.quick_glance} isIn={isIn} />
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: "1rem" }}>
         {[
           { num: mainScore, label: isIn ? "Demand strength" : "Send readiness", color: scoreColor },
@@ -138,13 +184,17 @@ function ResultCard({ result, lens }) {
           <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>{isIn ? "Routing" : "Verdict"}</div>
         </div>
       </div>
+
       <p style={{ fontSize: 14, lineHeight: 1.7, color: "#374151", padding: "12px 14px", background: "#f9fafb", borderRadius: 8, marginBottom: "1rem" }}>{result.summary}</p>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
         <Section label="Strengths" items={result.strengths} accent="#16a34a" />
         <Section label={isIn ? "Weaknesses to challenge" : "Gaps adjuster will exploit"} items={isIn ? result.weaknesses : result.gaps} accent="#dc2626" />
       </div>
+
       <Section label={isIn ? "Red flags" : "Adjuster will attack"} items={isIn ? result.red_flags : result.adjuster_will_attack} accent="#d97706" />
       <Section label="Missing documentation" items={result.missing_docs} accent="#9ca3af" />
+
       {(isIn ? result.settlement_posture : result.before_you_send) && (
         <div style={{ padding: "12px 14px", background: "#f9fafb", borderRadius: 8, fontSize: 13, color: "#374151", marginBottom: "0.75rem" }}>
           <strong>{isIn ? "Settlement posture:" : "Before you send:"}</strong>{" "}{isIn ? result.settlement_posture : result.before_you_send}
