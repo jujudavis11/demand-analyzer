@@ -74,15 +74,15 @@ ${content.substring(0, 6000)}`;
       return res.status(response.status).json({ error: data.error?.message || 'API error' });
     }
 
-    const raw = data.content.map(i => i.text || '').join('');
-    const clean = raw.replace(/```json|```/g, '').trim();
-
-    try {
-      const parsed = JSON.parse(clean);
-      return res.status(200).json(parsed);
-    } catch (e) {
-      return res.status(500).json({ error: 'Failed to parse AI response', raw: clean });
+  const raw = data.content.map(i => i.text || '').join('');
+    let parsed = null;
+    try { parsed = JSON.parse(raw.replace(/```json|```/g, '').trim()); } catch(e) {}
+    if (!parsed) {
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) { try { parsed = JSON.parse(match[0]); } catch(e) {} }
     }
+    if (parsed) return res.status(200).json(parsed);
+    return res.status(500).json({ error: 'Failed to parse AI response', raw: raw.substring(0, 500) });
   } catch (err) {
     return res.status(500).json({ error: 'Server error: ' + err.message });
   }
