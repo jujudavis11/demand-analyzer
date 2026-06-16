@@ -75,20 +75,21 @@ export default function App() {
 
       {/* Header */}
       <header style={{ background: NAV_BG, borderBottom: `1px solid #1a2235`, padding: "0 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <img src="/aaa-logo.png" alt="AI Arsenal Activators" style={{ height: 44, width: "auto" }} />
-          <div style={{ width: 1, height: 28, background: "#2a3550" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+          <img src="/aaa-logo.png" alt="AI Arsenal Activators" style={{ height: 58, width: "auto" }} />
+          <div style={{ width: 1, height: 36, background: "#2a3550" }} />
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-              Demand<span style={{ color: BLUE }}>360</span>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.03em", lineHeight: 1 }}>
+              DEMAND<span style={{ color: BLUE, textShadow: "0 0 20px #1A6BFF88" }}>360</span>
             </div>
-            <div style={{ fontSize: 11, color: "#7a8ba8", letterSpacing: "0.04em", textTransform: "uppercase" }}>AI Demand Intelligence</div>
+            <div style={{ fontSize: 10, color: "#5a8fd4", letterSpacing: "0.18em", textTransform: "uppercase", marginTop: 3, fontWeight: 500 }}>AI Demand Intelligence</div>
           </div>
         </div>
-        <div style={{ fontSize: 12, color: "#4a5a78", textAlign: "right" }}>
-          <span style={{ background: "#0d1525", border: "1px solid #1e2d45", borderRadius: 4, padding: "3px 10px", color: "#5a8fd4" }}>
-            Beta
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 11, color: "#3a4a62", textAlign: "right", lineHeight: 1.4 }}>
+            Powered by<br/><span style={{ color: "#5a8fd4", fontWeight: 600 }}>AI Arsenal Activators</span>
+          </div>
+          <span style={{ background: "#0d1525", border: "1px solid #1e2d45", borderRadius: 4, padding: "3px 10px", color: "#5a8fd4", fontSize: 11 }}>Beta</span>
         </div>
       </header>
 
