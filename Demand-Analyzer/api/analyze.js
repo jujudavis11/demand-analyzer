@@ -89,7 +89,7 @@ ${content.substring(0, 12000)}`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 2000,
+        max_tokens: 3000,
         messages: [{ role: 'user', content: lens === 'incoming' ? incomingPrompt : outgoingPrompt }]
       })
     });
