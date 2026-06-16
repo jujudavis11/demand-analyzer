@@ -7,8 +7,8 @@ export default async function handler(req, res) {
   const { content, lens } = req.body;
   if (!content) return res.status(400).json({ error: 'No content provided' });
   const prompt = lens === 'incoming'
-    ? `You are a senior BI claims adjuster. Analyze this demand letter. Reply with ONLY a JSON object, nothing else before or after it:\n{"demand_strength":75,"triage":"DESK SETTLEMENT","liability_score":7,"damages_score":6,"summary":"brief summary here","strengths":["item"],"weaknesses":["item"],"missing_docs":["item"],"red_flags":["item"],"settlement_posture":"posture here","adjuster_notes":"notes here"}\n\nDemand:\n${content.substring(0, 4000)}`
-    : `You are a senior PI attorney. Analyze this demand letter. Reply with ONLY a JSON object, nothing else before or after it:\n{"send_readiness":75,"verdict":"NEEDS REVISION","liability_score":7,"damages_score":6,"summary":"brief summary here","strengths":["item"],"gaps":["item"],"missing_docs":["item"],"adjuster_will_attack":["item"],"before_you_send":"action items here","attorney_notes":"notes here"}\n\nDemand:\n${content.substring(0, 4000)}`;
+    ? `You are a senior BI claims adjuster. Analyze this demand letter. Reply with ONLY a JSON object, nothing else before or after it:\n{"demand_strength":75,"triage":"DESK SETTLEMENT","liability_score":7,"damages_score":6,"summary":"brief summary here","strengths":["item"],"weaknesses":["item"],"missing_docs":["item"],"red_flags":["item"],"settlement_posture":"posture here","adjuster_notes":"notes here"}\n\nDemand:\n${content.substring(0, 12000)}`
+    : `You are a senior PI attorney. Analyze this demand letter. Reply with ONLY a JSON object, nothing else before or after it:\n{"send_readiness":75,"verdict":"NEEDS REVISION","liability_score":7,"damages_score":6,"summary":"brief summary here","strengths":["item"],"gaps":["item"],"missing_docs":["item"],"adjuster_will_attack":["item"],"before_you_send":"action items here","attorney_notes":"notes here"}\n\nDemand:\n${content.substring(0, 12000)}`;
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
