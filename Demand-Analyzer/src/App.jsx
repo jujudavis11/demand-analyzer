@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { getPdfPageCount, splitPdfToChunks, MAX_PAGES_PER_CHUNK } from "./pdfChunker";
 
 const NAV_BG = "#080C12";
 const BLUE = "#1A6BFF";
@@ -13,16 +14,34 @@ const COLORS = {
 };
 
 const LOADING_MSGS = [
-  "Analyzing demand letter...",
-  "Reviewing medical documentation...",
+  "Reading uploaded documents...",
+  "Cross-referencing medical records...",
+  "Reviewing billing and wage loss docs...",
   "Scoring liability factors...",
   "Generating triage assessment...",
 ];
 
+const MAX_FILES = 12;
+const MAX_FILE_MB = 15;
+const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      const base64 = result.substring(result.indexOf(",") + 1);
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function App() {
   const [lens, setLens] = useState("incoming");
   const [text, setText] = useState("");
-  const [filename, setFilename] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState([]); // [{name, type, rawFile, pageCount, sizeLabel}]
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MSGS[0]);
   const [result, setResult] = useState(null);
@@ -32,29 +51,114 @@ export default function App() {
 
   function handleLens(l) { setLens(l); setResult(null); setError(""); }
 
-  function handleFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    setFilename(file.name);
+  async function handleFiles(e) {
+    const incoming = Array.from(e.target.files || []);
+    if (!incoming.length) return;
     setError("");
-    const reader = new FileReader();
-    reader.onload = (ev) => setText(ev.target.result);
-    reader.readAsText(file);
+
+    if (uploadedFiles.length + incoming.length > MAX_FILES) {
+      setError(`You can upload up to ${MAX_FILES} files at once.`);
+      return;
+    }
+
+    const accepted = [];
+    for (const file of incoming) {
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        setError(`"${file.name}" is not a supported file type. Use PDF, JPG, PNG, or WEBP.`);
+        continue;
+      }
+      if (file.size > MAX_FILE_MB * 1024 * 1024) {
+        setError(`"${file.name}" is too large. Max file size is ${MAX_FILE_MB}MB.`);
+        continue;
+      }
+      accepted.push(file);
+    }
+
+    const converted = await Promise.all(
+      accepted.map(async (file) => {
+        let pageCount = null;
+        if (file.type === "application/pdf") {
+          try {
+            pageCount = await getPdfPageCount(file);
+          } catch (err) {
+            pageCount = null;
+          }
+        }
+        return {
+          name: file.name,
+          type: file.type,
+          rawFile: file,
+          pageCount,
+          sizeLabel: file.size > 1024 * 1024
+            ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+            : `${Math.round(file.size / 1024)} KB`,
+        };
+      })
+    );
+
+    setUploadedFiles((prev) => [...prev, ...converted]);
+    e.target.value = "";
+  }
+
+  function removeFile(idx) {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function analyze() {
-    if (!text.trim()) { setError("Please paste demand letter text first."); return; }
+    if (!text.trim() && uploadedFiles.length === 0) {
+      setError("Please paste demand letter text or upload at least one file.");
+      return;
+    }
     setError(""); setResult(null); setLoading(true);
     let mi = 0; setLoadingMsg(LOADING_MSGS[0]);
     intervalRef.current = setInterval(() => {
       mi = (mi + 1) % LOADING_MSGS.length;
       setLoadingMsg(LOADING_MSGS[mi]);
     }, 2500);
+
     try {
+      const oversizedPdf = uploadedFiles.find(
+        (f) => f.type === "application/pdf" && f.pageCount && f.pageCount > MAX_PAGES_PER_CHUNK
+      );
+
+      let payload;
+
+      if (oversizedPdf) {
+        setLoadingMsg(`Splitting ${oversizedPdf.pageCount}-page PDF into sections...`);
+        const chunks = await splitPdfToChunks(oversizedPdf.rawFile);
+
+        const otherFiles = await Promise.all(
+          uploadedFiles
+            .filter((f) => f !== oversizedPdf)
+            .map(async (f) => ({
+              name: f.name,
+              type: f.type,
+              data: await fileToBase64(f.rawFile),
+            }))
+        );
+
+        payload = {
+          mode: "chunked",
+          lens,
+          content: text,
+          files: otherFiles,
+          chunks,
+        };
+      } else {
+        const files = await Promise.all(
+          uploadedFiles.map(async (f) => ({
+            name: f.name,
+            type: f.type,
+            data: await fileToBase64(f.rawFile),
+          }))
+        );
+        payload = { mode: "single", lens, content: text, files };
+      }
+
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: text, lens }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Server error");
@@ -98,10 +202,10 @@ export default function App() {
         {/* Hero */}
         <div style={{ marginBottom: "2rem", paddingTop: "0.5rem" }}>
           <h1 style={{ fontSize: 26, fontWeight: 700, color: "#0d1525", margin: 0, letterSpacing: "-0.02em" }}>
-            Demand Letter Analyzer
+            Demand Package Analyzer
           </h1>
           <p style={{ fontSize: 15, color: "#5a6a82", marginTop: 6, lineHeight: 1.5 }}>
-            AI-powered triage for incoming demands and outgoing demand checks. Built by a BI adjuster, for claims professionals.
+            Upload the full package — cover letter, medical records, bills, police report, photos — or paste text. Built by a BI adjuster, for claims professionals.
           </p>
         </div>
 
@@ -145,14 +249,70 @@ export default function App() {
           })}
         </div>
 
+        {/* File Upload Zone */}
+        <div
+          onClick={() => fileRef.current?.click()}
+          style={{
+            border: `2px dashed ${uploadedFiles.length ? c.border : "#cbd5e3"}`,
+            borderRadius: 10, padding: "20px",
+            background: uploadedFiles.length ? c.bg : "#fafbfd",
+            cursor: "pointer", textAlign: "center",
+            marginBottom: 12, transition: "all 0.15s",
+          }}
+        >
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept=".pdf,.png,.jpg,.jpeg,.webp"
+            onChange={handleFiles}
+            style={{ display: "none" }}
+          />
+          <div style={{ fontSize: 28, marginBottom: 6 }}>📎</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2235" }}>
+            Click to upload demand package files
+          </div>
+          <div style={{ fontSize: 12, color: "#8a96ab", marginTop: 4 }}>
+            PDFs, photos, scans — any size PDF is fine, large ones are automatically split for processing. Up to {MAX_FILES} files, {MAX_FILE_MB}MB each.
+          </div>
+        </div>
+
+        {/* Uploaded file list */}
+        {uploadedFiles.length > 0 && (
+          <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 6 }}>
+            {uploadedFiles.map((f, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "8px 12px", background: "#fff", border: "1px solid #e2e8f0",
+                borderRadius: 8, fontSize: 13,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
+                  <span>{f.type === "application/pdf" ? "📄" : "🖼️"}</span>
+                  <span style={{ color: "#1a2235", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</span>
+                  <span style={{ color: "#9aa5b8", fontSize: 11, flexShrink: 0 }}>{f.sizeLabel}</span>
+                  {f.pageCount && f.pageCount > MAX_PAGES_PER_CHUNK && (
+                    <span style={{ color: "#d97706", fontSize: 11, flexShrink: 0, fontWeight: 600 }}>
+                      {f.pageCount} pages · will auto-split
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                  style={{ border: "none", background: "none", color: "#9aa5b8", cursor: "pointer", fontSize: 16, padding: "0 4px" }}
+                >×</button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Text Input */}
         <div style={{ position: "relative" }}>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Paste demand letter text here — cover letter, medical summary, wage loss documentation..."
+            placeholder="Optionally paste additional text here — cover letter, notes, anything not already covered by your uploaded files..."
             style={{
-              width: "100%", minHeight: 180, padding: "14px 16px",
+              width: "100%", minHeight: 120, padding: "14px 16px",
               fontSize: 14, fontFamily: "inherit",
               border: "1.5px solid #dce3ed", borderRadius: 10,
               resize: "vertical", outline: "none",
@@ -336,6 +496,9 @@ function ResultCard({ result, lens }) {
           borderRadius: 8, marginBottom: "1.25rem",
           borderLeft: `3px solid ${BLUE}`,
         }}>{result.summary}</p>
+
+        {/* Cross-document issues */}
+        <Section label="⚠️ Cross-Document Inconsistencies" items={result.cross_document_issues} accent="#dc2626" />
 
         {/* Two column */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", marginBottom: "0.5rem" }}>
